@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<title>Прогноз погоды</title>
+<script>
+let userId = localStorage.getItem('user_id');
+if (!userId) {
+    userId = Math.random().toString(36).substring(2);
+    localStorage.setItem('user_id', userId);
+}
+
+async function fetchSuggestions() {
+    const q = document.getElementById('city').value;
+    const res = await fetch(`/autocomplete?q=${q}`);
+    const suggestions = await res.json();
+    
+    const datalist = document.getElementById('cities');
+    datalist.innerHTML = '';
+    
+    suggestions.forEach(city => {
+        const option = document.createElement('option');
+        option.value = city;
+        datalist.appendChild(option);
+    });
+}
+
+async function getWeather() {
+    const cityInput = document.getElementById('city');
+    const city = cityInput.value;
+    
+    const formData = new FormData();
+    formData.append('city', city);
+    formData.append('user_id', userId);
+    
+    const res = await fetch('/weather', {method: 'POST', body: formData});
+    
+    if(res.ok) {
+        const data = await res.json();
+        document.getElementById('result').innerHTML =
+            `<h3>Погода в ${data.city}</h3>
+             <p>Температура: ${data.forecast.temperature}°C</p>
+             <p>Скорость ветра: ${data.forecast.windspeed} м/с</p>
+             <p>Описание: ${data.forecast.description}</p>`;
+        
+        // Запрос истории пользователя и отображение можно реализовать здесь же.
+        
+        // Также можно сохранять историю поиска в localStorage или показывать через API.
+        
+        // Например:
+        fetch(`/history/${userId}`)
+            .then(res => res.json())
+            .then(data => {
+                document.getElementById('history').innerHTML =
+                    '<h4>История поиска:</h4><ul>' +
+                    data.history.map(c => `<li>${c}</li>`).join('') +
+                    '</ul>';
+            });
+        
+        // Также можно обновлять статистику по городам через отдельный вызов API.
+        
+     } else {
+         document.getElementById('result').innerHTML =
+             '<p>Ошибка при получении погоды</p>';
+     }
+}
+</script>
+</head>
+<body>
+<h1>Погода в вашем городе</h1>
+<input list="cities" id="city" name="city" oninput="fetchSuggestions()" placeholder="Введите название города"/>
+<datalist id="cities"></datalist>
+<button onclick="getWeather()">Показать прогноз</button>
+
+<div id="result"></div>
+<div id="history"></div>
+
+</body>
+</html>
