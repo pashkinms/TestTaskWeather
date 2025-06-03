@@ -1,7 +1,7 @@
-from fastapi import FastAPI, HTTPException, Form
+from fastapi import FastAPI, HTTPException, Form, Depends
 from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel
-
+from sqlalchemy.ext.asyncio import AsyncSession
 import db
 
 import uvicorn
@@ -9,7 +9,9 @@ import httpx
 
 app = FastAPI()
 
-@app.post('/reset_db')
+LOGIN = 'Anonimous'
+
+@app.post('/reset_db', summary='Создать или очичтить БД', tags=['Администрирование'])
 async def reset_db():
     await db.setup_database()
 
@@ -67,21 +69,66 @@ async def autocomplete(q: str):
     return suggestions
 
 @app.post("/weather")
-async def get_weather(city: str = Form(...)):
+async def get_weather(city: str = Form(...), session: AsyncSession = Depends(db.get_session)):
     
     lat, lon = await get_city_coordinates(city)
        
     forecast = await fetch_weather(lat, lon)
 
-    
+    allcities = await db.get_all_city(session)
+    flag = False
+    for c in allcities:
+        if city.lower() == c.name.lower():
+            flag = True
+    if flag:        
+        await db.implement_city_counter(city, session)
+    else:
+        new_city = db.CityAddSchema
+        new_city.name = city
+        await db.add_city(new_city, session)
+        await db.implement_city_counter(city, session)
+    await db.modify_user_history(LOGIN, city, session)    
     return {
         "city": city,
         "forecast": forecast.dict()
     }
 
 @app.post("/getuser")
-async def get_user(username: str = Form(...)):
+async def get_user(username: str = Form(...), session: AsyncSession = Depends(db.get_session)):
+    global LOGIN
+    allusers = await db.get_all_users(session)
+    flag = False
+    for u in allusers:
+        if username.lower() == u.name.lower():
+            flag = True
+    if flag:        
+        LOGIN = username
+    else:
+        user = db.UserAddSchema
+        user.name = username
+        await db.add_user(user, session)
+        LOGIN = username
     return {"username": username}
+
+
+@app.get('/history/{username}')
+async def get_history(username, session: AsyncSession = Depends(db.get_session) ):
+    result = await db.get_history_by_username(username, session)
+    return {'history': result}
+
+
+# Сомнительное:
+@app.post('/add_to_history')
+async def add_to_history(data: dict, session: AsyncSession = Depends(db.get_session)):
+    username = data.get('username')
+    city = data.get('city')
+    
+    if not username or not city:
+        raise HTTPException(status_code=400, detail="Missing username or city")
+    await db.modify_user_history(username, city, session)
+    # После добавления можно вернуть обновленный список
+    history_list = await db.get_history_by_username(username, session)
+    return {"history": history_list}
 
 if __name__ == '__main__':
     uvicorn.run('main:app', reload=True)

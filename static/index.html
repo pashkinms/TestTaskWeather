@@ -25,6 +25,8 @@ async function fetchSuggestions() {
     });
 }
 
+let currentUser = null;
+
 async function getUser() {
     const nameInput = document.getElementById('username');
     const name = nameInput.value.trim();
@@ -45,6 +47,7 @@ async function getUser() {
         if (response.ok) {
             const data = await response.json();
             document.getElementById('displayUserName').innerHTML = `<h2>Привет, ${data.username}!</h2>`;
+            currentUser = data.username; // сохраняем текущего пользователя
         } else {
             alert('Ошибка при отправке имени на сервер');
         }
@@ -73,25 +76,47 @@ async function getWeather() {
              <p>Описание: ${data.forecast.description}</p>`;
         
         // Запрос истории пользователя и отображение можно реализовать здесь же.
+        saveCityToHistory(currentUser, city);
         
-        // Также можно сохранять историю поиска в localStorage или показывать через API.
         
-        // Например:
-        fetch(`/history/${userId}`)
-            .then(res => res.json())
-            .then(data => {
-                document.getElementById('history').innerHTML =
-                    '<h4>История поиска:</h4><ul>' +
-                    data.history.map(c => `<li>${c}</li>`).join('') +
-                    '</ul>';
-            });
+        fetch(`/history/${currentUser}`)
+             .then(res => res.json())
+             .then(data => {
+      // data должно иметь ключ 'history'
+      updateHistoryDisplay(history);
+  });
         
-        // Также можно обновлять статистику по городам через отдельный вызов API.
+       
         
      } else {
          document.getElementById('result').innerHTML =
              '<p>Ошибка при получении погоды</p>';
      }
+}
+async function saveCityToHistory(username, city) {
+    const response = await fetch('/add_to_history', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({username: username, city: city})
+    });
+    if (response.ok) {
+        const data = await response.json();
+        // Обновляем список истории на странице
+        updateHistoryDisplay(data.history);
+    } else {
+        console.error('Ошибка при сохранении истории');
+    }
+}
+
+function updateHistoryDisplay(historyString) {
+    const historyDiv = document.getElementById('history');
+    if (historyString && historyString.trim() !== '') {
+        // Выводим строку
+        historyDiv.innerHTML = '<h4>История поиска:</h4><p>' + historyString + '</p>';
+    } else {
+        // Если строка пустая или отсутствует
+        historyDiv.innerHTML = '<h4>История поиска:</h4><p>Нет записей</p>';
+    }
 }
 </script>
 </head>
