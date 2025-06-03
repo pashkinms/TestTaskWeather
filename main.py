@@ -1,13 +1,17 @@
 from fastapi import FastAPI, HTTPException, Form
 from fastapi.responses import HTMLResponse, JSONResponse
-
 from pydantic import BaseModel
+
+import db
+
 import uvicorn
 import httpx
 
 app = FastAPI()
 
-
+@app.post('/reset_db')
+async def reset_db():
+    await db.setup_database()
 
 search_history = {}  # user_id -> list of cities 
 city_stats = {}  # city_name -> count
@@ -24,7 +28,8 @@ CITY_COORDS = {
         "Омск": (54.9885, 73.3242),
         "Самара": (53.1959, 50.1000),
     }
-# Простая модель прогноза погоды (можно расширить)
+
+
 class WeatherForecast(BaseModel):
     temperature: float
     windspeed: float
@@ -53,7 +58,7 @@ async def fetch_weather(latitude, longitude):
 
 @app.get('/', response_class=HTMLResponse, summary='Main Page', tags=['Open IndexPage'])
 async def index():
-    with open('static\index.html', encoding='utf-8') as f:
+    with open('static/index.html', encoding='utf-8') as f:
         return HTMLResponse(content=f.read())
 
 @app.get('/autocomplete')
@@ -62,23 +67,21 @@ async def autocomplete(q: str):
     return suggestions
 
 @app.post("/weather")
-async def get_weather(city: str = Form(...), user_id: str = Form(None)):
-    # Получаем координаты города
-    lat, lon = await get_city_coordinates(city)
+async def get_weather(city: str = Form(...)):
     
-    # Получаем прогноз погоды
+    lat, lon = await get_city_coordinates(city)
+       
     forecast = await fetch_weather(lat, lon)
 
-    # Обновляем историю поиска пользователя и статистику по городу
-    if user_id:
-        search_history.setdefault(user_id, []).append(city)
-    city_stats[city] = city_stats.get(city, 0) + 1
-
+    
     return {
         "city": city,
         "forecast": forecast.dict()
     }
 
+@app.post("/getuser")
+async def get_user(username: str = Form(...)):
+    return {"username": username}
 
 if __name__ == '__main__':
     uvicorn.run('main:app', reload=True)

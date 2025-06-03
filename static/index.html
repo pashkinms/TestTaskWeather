@@ -25,6 +25,35 @@ async function fetchSuggestions() {
     });
 }
 
+async function getUser() {
+    const nameInput = document.getElementById('username');
+    const name = nameInput.value.trim();
+
+    if (!name) {
+        alert("Пожалуйста, введите имя");
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('username', name);
+
+    try {
+        const response = await fetch('/getuser', {
+            method: 'POST',
+            body: formData
+        });
+        if (response.ok) {
+            const data = await response.json();
+            document.getElementById('displayUserName').innerHTML = `<h2>Привет, ${data.username}!</h2>`;
+        } else {
+            alert('Ошибка при отправке имени на сервер');
+        }
+    } catch (error) {
+        console.error('Ошибка:', error);
+        alert('Произошла ошибка при отправке данных');
+    }
+}
+
 async function getWeather() {
     const cityInput = document.getElementById('city');
     const city = cityInput.value;
@@ -67,6 +96,11 @@ async function getWeather() {
 </script>
 </head>
 <body>
+    <h2>Введите имя пользователя</h2>
+<input id="username" placeholder="Введите имя пользователя"/>
+<button onclick="getUser()">Войти</button>
+<div id="displayUserName"></div>
+
 <h1>Погода в вашем городе</h1>
 <input list="cities" id="city" name="city" oninput="fetchSuggestions()" placeholder="Введите название города"/>
 <datalist id="cities"></datalist>
