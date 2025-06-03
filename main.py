@@ -1,5 +1,5 @@
 from fastapi import FastAPI, HTTPException, Form, Depends
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 import db
@@ -116,8 +116,6 @@ async def get_history(username, session: AsyncSession = Depends(db.get_session) 
     result = await db.get_history_by_username(username, session)
     return {'history': result}
 
-
-# Сомнительное:
 @app.post('/add_to_history')
 async def add_to_history(data: dict, session: AsyncSession = Depends(db.get_session)):
     username = data.get('username')
@@ -126,7 +124,7 @@ async def add_to_history(data: dict, session: AsyncSession = Depends(db.get_sess
     if not username or not city:
         raise HTTPException(status_code=400, detail="Missing username or city")
     await db.modify_user_history(username, city, session)
-    # После добавления можно вернуть обновленный список
+    
     history_list = await db.get_history_by_username(username, session)
     return {"history": history_list}
 
